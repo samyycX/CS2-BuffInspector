@@ -1,5 +1,9 @@
 # CS2-BuffInspector
 基于WeaponPaints，在游戏内解析buff的分享链接并更换皮肤
+支持:
+- 枪械
+- 刀具
+- 手套
 
 # 依赖
 - [WeaponPaints](https://github.com/Nereziel/cs2-WeaponPaints) **(需要已经生成并配置好配置文件)**
