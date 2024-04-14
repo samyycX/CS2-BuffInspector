@@ -1,0 +1,10 @@
+{
+    "parsing": "[{green}BuffInspector{default}] {green}解析中...",
+    "failed": "[{green}BuffInspector{default}] {red}解析失败！请检查你的buff分享链接是否正确",
+    "success": "[{green}BuffInspector{default}] {green}解析成功!",
+    "hint.name": "{green}武器名: {default}{0}",
+    "hint.seed": "{green}图案模板 (paint seed): {default}{0}",
+    "hint.index": "{green}皮肤编号 (paint index): {default}{0}",
+    "hint.wear": "{green}磨损: {default}{0}",
+    "hint.update": "[{green}BuffInspector{default}] {yellow}请刷新您的皮肤！"
+}
