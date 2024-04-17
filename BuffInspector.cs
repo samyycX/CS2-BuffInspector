@@ -91,6 +91,7 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
     [CommandHelper(minArgs: 1, usage: "[buff分享链接]", whoCanExecute: CommandUsage.CLIENT_ONLY)]
     public async void OnBuffCommand(CCSPlayerController player, CommandInfo commandInfo) {
         var splited = commandInfo.GetCommandString.Split(" ");
+        splited = splited.Where(x => !string.IsNullOrEmpty(x)).ToArray();
         if (splited.Length < 2) {
             player.PrintToChat(Localizer["failed"]);
             return;
