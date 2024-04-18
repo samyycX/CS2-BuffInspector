@@ -19,6 +19,7 @@ public class Config : BasePluginConfig {
     public bool UseSync {get; set;} = false;
     public bool EnableImagePreview {get; set;} = true;
     public float ImagePreviewTime {get; set;} = 5f;
+    public bool EnableSticker {get; set;} = true;
 }
 public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 {
@@ -29,10 +30,6 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
     public override string ModuleAuthor => "samyyc";
     private DatabaseConnection Database;
     public Config Config {get; set;}
-
-    public void OnConfigParsed(Config config) {
-        Config = config;
-    }
 
     public static Dictionary<int,string> KnifeDefIndexToName { get; } = new Dictionary<int, string>
 	{
@@ -58,13 +55,17 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 		{ 526, "weapon_knife_kukri" }
 	};
 
+    
     public Dictionary<ulong, string> CenterImages = new Dictionary<ulong, string>();
-
     private List<PlayerSticker> TempStickers = new List<PlayerSticker>();
     private MemoryFunctionVoid<nint, string, float> CAttributeList_SetOrAddAttributeValueByName = new(GameData.GetSignature("CAttributeList_SetOrAddAttributeValueByName"));
+    
+    public void OnConfigParsed(Config config) {
+        Config = config;
+    }
+
     public override void Load(bool hotReload)
     {
-        Console.WriteLine("Buff Inspector Loaded.");
         var CS2WeaponPaintsConfigPath = Path.Join(ModuleDirectory, "../../configs/plugins/WeaponPaints/WeaponPaints.json");
         if (!File.Exists(CS2WeaponPaintsConfigPath)) {
             throw new FileNotFoundException($"Weapon Paints Config {CS2WeaponPaintsConfigPath} Not Found.");
@@ -77,9 +78,9 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
         Database = new DatabaseConnection(info);
 
         RegisterListener<Listeners.OnTick>(OnTick);
-
         RegisterListener<Listeners.OnEntityCreated>(OnEntityCreated);
-    
+        
+        Console.WriteLine("Buff Inspector Loaded.");
     }
 
     public override void Unload(bool hotReload)

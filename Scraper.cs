@@ -147,6 +147,9 @@ partial class BuffInspector {
             return null;
         }
 
+        if (!Config.EnableSticker) {
+            return skinInfo;
+        }
         
         // sticker
         var itemDescDetailUrl = url.Replace("/market/item_detail", "/api/market/item_desc_detail");
