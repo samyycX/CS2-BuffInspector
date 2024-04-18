@@ -161,9 +161,7 @@ partial class BuffInspector {
                         var sticker = new Sticker((int) obj.sticker_id, (int) obj.slot, (float) obj.wear, (float) (obj.offset_x ?? 0f), (float) (obj.offset_y ?? 0f), (string) obj.sticker_name);
                         skinInfo!.SetSticker(sticker);
                     }
-                } catch (Exception _) {
-                    Console.WriteLine(_);
-                }
+                } catch (Exception _) {}
 
             }
         }
