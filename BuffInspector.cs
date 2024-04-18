@@ -9,6 +9,7 @@ using CounterStrikeSharp.API.Core.Commands;
 using CounterStrikeSharp.API.Core.Plugin.Host;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using Newtonsoft.Json;
 
@@ -19,7 +20,6 @@ public class Config : BasePluginConfig {
     public bool EnableImagePreview {get; set;} = true;
     public float ImagePreviewTime {get; set;} = 5f;
 }
-
 public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 {
 
@@ -59,7 +59,9 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 	};
 
     public Dictionary<ulong, string> CenterImages = new Dictionary<ulong, string>();
-    
+
+    private List<PlayerSticker> TempStickers = new List<PlayerSticker>();
+    private MemoryFunctionVoid<nint, string, float> CAttributeList_SetOrAddAttributeValueByName = new(GameData.GetSignature("CAttributeList_SetOrAddAttributeValueByName"));
     public override void Load(bool hotReload)
     {
         Console.WriteLine("Buff Inspector Loaded.");
@@ -74,16 +76,68 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 
         Database = new DatabaseConnection(info);
 
-        RegisterListener<Listeners.OnTick>(() => {
-            if (!Config.EnableImagePreview) {
+        RegisterListener<Listeners.OnTick>(OnTick);
+
+        RegisterListener<Listeners.OnEntityCreated>(OnEntityCreated);
+    
+    }
+
+    public override void Unload(bool hotReload)
+    {
+        RemoveListener<Listeners.OnEntityCreated>(OnEntityCreated);
+        RemoveListener<Listeners.OnTick>(OnTick);
+    }
+
+    private void OnTick() {
+         if (!Config.EnableImagePreview) {
+            return;
+        }
+        foreach (var (steamid, imgurl) in CenterImages) {
+            var player = Utilities.GetPlayerFromSteamId(steamid);
+            if (player != null && imgurl != null && player.IsValid && player.Pawn.IsValid && player.PlayerPawn.IsValid) {
+                player.PrintToCenterHtml($"<img src=\"{imgurl}\" width=100 height=100></img>", 10);
+            }
+        }   
+    }
+
+    private float ViewAsFloat(uint value)
+    {
+        byte[] bytes = BitConverter.GetBytes(value);
+        return BitConverter.ToSingle(bytes, 0);
+    }
+
+    private void OnEntityCreated(CEntityInstance entity) {
+        if (!entity.IsValid) {
+            return;
+        }
+        if (!entity.DesignerName.Contains("weapon")) {
+            return;
+        }
+        Server.NextFrame(() => {
+            var weapon = new CBasePlayerWeapon(entity.Handle);
+            if (!weapon.IsValid || weapon.OriginalOwnerXuidLow == 0) return;
+
+            var player = Utilities.GetPlayerFromSteamId((ulong)weapon.OriginalOwnerXuidLow);
+            if (player == null || !player.IsValid || player.Pawn == null || !player.Pawn.IsValid || player.PlayerPawn == null || !player.PlayerPawn.IsValid || player.IsBot) {
                 return;
             }
-            foreach (var (steamid, imgurl) in CenterImages) {
-                var player = Utilities.GetPlayerFromSteamId(steamid);
-                if (player != null && player.IsValid && player.Pawn.IsValid && player.PlayerPawn.IsValid) {
-                    player.PrintToCenterHtml($"<img src=\"{imgurl}\" width=100 height=100></img>", 10);
-                }
+
+            var stickersData = TempStickers.Where(d => d.Steamid == player.SteamID && d.DefIndex == weapon.AttributeManager.Item.ItemDefinitionIndex);
+            if (stickersData.Count() == 0) {
+                return;
             }
+            var stickers = stickersData.First();
+            foreach (var sticker in stickers.Stickers) {
+                Console.WriteLine(sticker.Id);
+                CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} id", ViewAsFloat((uint) sticker.Id));
+                CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} rotation", 0f);
+                CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} offset x", sticker.OffsetX);
+                CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} offset y", sticker.OffsetY);
+                CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} wear", sticker.Wear);
+            }
+
+            TempStickers.RemoveAll(d => d.Steamid == player.SteamID && d.DefIndex == weapon.AttributeManager.Item.ItemDefinitionIndex);
+           
         });
     }
 
@@ -119,6 +173,10 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
                 }
 
                 await Database.SetSkinInfo(steamid, skinInfo);
+
+                if (skinInfo.Stickers.Count() > 0) {
+                    TempStickers.Add(new( steamid, skinInfo.DefIndex, skinInfo.Stickers ));
+                }
                 
                 await Server.NextFrameAsync(() => {
                     player.PrintToChat(Localizer["success"]);
@@ -126,6 +184,9 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
                     player.PrintToChat(Localizer["hint.seed", skinInfo.PaintSeed]);
                     player.PrintToChat(Localizer["hint.index", skinInfo.PaintIndex]);
                     player.PrintToChat(Localizer["hint.wear", skinInfo.PaintWear]);
+                    foreach (var sticker in skinInfo.Stickers) {  
+                        player.PrintToChat(Localizer["hint.sticker", sticker.Slot, sticker.Name]);
+                    }
                     player.PrintToChat(Localizer["hint.update"]);
                     if (CenterImages.ContainsKey(steamid)) {
                         CenterImages.Remove(steamid);
@@ -156,12 +217,19 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
             }
 
             Database.SetSkinInfo(steamid, skinInfo).Wait();
+
+            if (skinInfo.Stickers.Count() > 0) {
+                TempStickers.Add(new( steamid, skinInfo.DefIndex, skinInfo.Stickers ));
+            }
             
             player.PrintToChat(Localizer["success"]);
             player.PrintToChat(Localizer["hint.name", skinInfo.title]);
             player.PrintToChat(Localizer["hint.seed", skinInfo.PaintSeed]);
             player.PrintToChat(Localizer["hint.index", skinInfo.PaintIndex]);
             player.PrintToChat(Localizer["hint.wear", skinInfo.PaintWear]);
+            foreach (var sticker in skinInfo.Stickers) {  
+                player.PrintToChat(Localizer["hint.sticker", sticker.Slot, sticker.Name]);
+            }
             if (CenterImages.ContainsKey(steamid)) {
                 CenterImages.Remove(steamid);
             }
@@ -172,5 +240,17 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
         
             player.ExecuteClientCommandFromServer("css_wp");
         }
+    }
+}
+
+public class PlayerSticker {
+    public ulong Steamid {get; set;}
+    public int DefIndex {get; set;}
+    public List<Sticker> Stickers {get; set;}
+
+    public PlayerSticker(ulong steamid, int defIndex, List<Sticker> stickers) {
+        this.Steamid = steamid;
+        this.DefIndex = defIndex;
+        this.Stickers = stickers;
     }
 }
