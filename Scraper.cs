@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace BuffInspector;
 
@@ -110,9 +112,9 @@ partial class BuffInspector {
         if (title == null) {
             return null;
         }
-        var img = htmlDoc.DocumentNode.SelectSingleNode("//img").GetAttributeValue("src", "");
+        var img = htmlDoc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", "");
         var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='skin-info']/p");
-        if (informations.Count() < 3) {
+        if (informations == null || informations.Count() < 3) {
             return null;
         }
         string? paintSeed = ExtractFirstNumber(informations[0].InnerText);
@@ -132,18 +134,40 @@ partial class BuffInspector {
             return null;
         }
 
+        SkinInfo skinInfo = null;
         try {
             int IntPaintSeed = int.Parse(paintSeed);
             int IntPaintIndex = int.Parse(paintIndex);
             float FloatPaintWear = float.Parse(paintWear);
             
-
-            return new SkinInfo(title, img, DefIndex, IntPaintIndex, IntPaintSeed, FloatPaintWear);
-        } catch (Exception e) {
+            skinInfo = new SkinInfo(title, img, DefIndex, IntPaintIndex, IntPaintSeed, FloatPaintWear);
+        } catch (Exception _) {
             Console.WriteLine("Error when parsing: "+url);
-            Console.WriteLine(e.StackTrace);
             return null;
         }
+
+        
+        // sticker
+        var itemDescDetailUrl = url.Replace("/market/item_detail", "/api/market/item_desc_detail");
+        var itemDescDetailResp = await client.GetAsync(itemDescDetailUrl);
+        if (itemDescDetailResp.IsSuccessStatusCode) {
+            var itemDescDetailJson = await itemDescDetailResp.Content.ReadAsStringAsync();
+            var itemDescDetail = JObject.Parse(itemDescDetailJson) as dynamic;
+            if (itemDescDetail != null && itemDescDetail!.code == "OK") {
+                try {
+                    var stickersJson = itemDescDetail!.data.steam_asset_info.stickers;
+                    foreach (dynamic obj in stickersJson) {
+                        var sticker = new Sticker((int) obj.sticker_id, (int) obj.slot, (float) obj.wear, (float) (obj.offset_x ?? 0f), (float) (obj.offset_y ?? 0f), (string) obj.sticker_name);
+                        skinInfo!.SetSticker(sticker);
+                    }
+                } catch (Exception _) {
+                    Console.WriteLine(_);
+                }
+
+            }
+        }
+
+        return skinInfo;
 
     }
 }

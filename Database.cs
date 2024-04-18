@@ -17,7 +17,6 @@ class DatabaseInfo {
 class DatabaseConnection {
     private MySqlConnection conn;
     public DatabaseConnection(DatabaseInfo info) {
-        Console.WriteLine(info.host);
         string connectStr = $"server={info.host};port={info.port};user={info.user};password={info.password};database={info.database};Pooling=true;MinimumPoolSize=0;MaximumPoolsize=640;ConnectionIdleTimeout=30;";
         conn = new MySqlConnection(connectStr);
         conn.Open();
