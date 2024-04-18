@@ -25,7 +25,7 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 
 
     public override string ModuleName => "Buff Inspector";
-    public override string ModuleVersion => "1";
+    public override string ModuleVersion => "2";
     public override string ModuleAuthor => "samyyc";
     private DatabaseConnection Database;
     public Config Config {get; set;}
@@ -128,7 +128,6 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
             }
             var stickers = stickersData.First();
             foreach (var sticker in stickers.Stickers) {
-                Console.WriteLine(sticker.Id);
                 CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} id", ViewAsFloat((uint) sticker.Id));
                 CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} rotation", 0f);
                 CAttributeList_SetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, $"sticker slot {sticker.Slot} offset x", sticker.OffsetX);
