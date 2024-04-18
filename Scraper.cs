@@ -38,8 +38,8 @@ partial class BuffInspector {
         { "SCAR-20", 38 },
         { "SG 553", 39 },
         { "SSG 08", 40 },
-        { "M4A1 消音型", 60 },
-        { "USP 消音型", 61 },
+        { "M4A1 消音版", 60 },
+        { "USP 消音版", 61 },
         { "CZ75 自动手枪", 63 },
         { "R8 左轮手枪", 64 },
         { "刺刀", 500 },
@@ -114,6 +114,7 @@ partial class BuffInspector {
         }
         var img = htmlDoc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", "");
         var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='skin-info']/p");
+        // informations为Null则该链接不为枪械、刀具或手套皮肤
         if (informations == null || informations.Count() < 3) {
             return null;
         }
