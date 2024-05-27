@@ -113,7 +113,7 @@ partial class BuffInspector {
             return null;
         }
         var img = htmlDoc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", "");
-        var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='skin-info']/p");
+        var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='info-card'][1]/p");
         // informations为Null则该链接不为枪械、刀具或手套皮肤
         if (informations == null || informations.Count() < 3) {
             return null;
