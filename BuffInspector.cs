@@ -26,7 +26,7 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 
 
     public override string ModuleName => "Buff Inspector";
-    public override string ModuleVersion => "2";
+    public override string ModuleVersion => "3";
     public override string ModuleAuthor => "samyyc";
     private DatabaseConnection Database;
     public Config Config {get; set;}
