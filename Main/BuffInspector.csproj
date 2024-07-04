@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+		<BaseOutputPath>..\output\</BaseOutputPath>
+		<OutputPath>$(BaseOutputPath)Release\plugins\BuffInspector</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.213">
+      <IncludeAssets>compile</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Dapper" Version="2.1.44"/>
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.60" />
+    <PackageReference Include="MySQLConnector" Version="2.3.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <LangFiles Include="lang/*.*" />
+    <Reference Include="BuffInspectorShared">
+      <HintPath>..\output\Release\shared\BuffInspectorShared\BuffInspectorShared.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="Build">
+		<Copy SourceFiles="@(LangFiles)" DestinationFolder="$(OutputPath)\lang" />
+		<Copy SourceFiles="$(NuGetPackageRoot)\dapper\2.1.44\lib\net7.0\Dapper.dll" DestinationFolder="$(OutputPath)" />
+		<Copy SourceFiles="$(NuGetPackageRoot)\htmlagilitypack\1.11.60\lib\Net45\HtmlAgilityPack.dll" DestinationFolder="$(OutputPath)" />
+		<Copy SourceFiles="$(NuGetPackageRoot)\mysqlconnector\2.3.6\lib\net8.0\MySQLConnector.dll" DestinationFolder="$(OutputPath)" />
+		<Copy SourceFiles="$(NuGetPackageRoot)\newtonsoft.json\13.0.3\lib\net6.0\Newtonsoft.Json.dll" DestinationFolder="$(OutputPath)" />
+    <Delete Files="$(OutputPath)\BuffInspectorShared.dll" />
+    <Delete Files="$(OutputPath)\BuffInspectorShared.pdb" />
+	</Target>
+</Project>

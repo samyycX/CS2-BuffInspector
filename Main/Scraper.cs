@@ -1,13 +1,12 @@
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace BuffInspector;
 
-partial class BuffInspector {
+public class Scraper {
 
-    private Dictionary<string, int> ItemNameToDefIndex = new Dictionary<string, int>() {
+    private static Dictionary<string, int> ItemNameToDefIndex = new Dictionary<string, int>() {
         { "沙漠之鹰", 1 },
         { "双持贝瑞塔", 2 },
         { "FN57", 3 },
@@ -76,7 +75,7 @@ partial class BuffInspector {
         var result = Regex.Matches(input, "(\\d+)");
         return result.First()?.Value;
     }
-    private async Task<SkinInfo?> scrapeUrl(string url) {
+    public async static Task<SkinInfo?> scrapeUrl(string url, bool enableSticker) {
         url = url.Replace("https://", "").Replace("http://", "");
 
         if (!url.StartsWith("buff.163.com")) {
@@ -112,6 +111,10 @@ partial class BuffInspector {
         if (title == null) {
             return null;
         }
+        string? nametag = htmlDoc.DocumentNode.SelectSingleNode("//p[@class='name_tag']")?.InnerText;
+        if (nametag != null) {
+            nametag = Regex.Matches(nametag, @"(?<=“)(.*)(?=”)").FirstOrDefault()?.Value;
+        }
         var img = htmlDoc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", "");
         var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='info-card'][1]/p");
         // informations为Null则该链接不为枪械、刀具或手套皮肤
@@ -141,13 +144,13 @@ partial class BuffInspector {
             int IntPaintIndex = int.Parse(paintIndex);
             float FloatPaintWear = float.Parse(paintWear);
             
-            skinInfo = new SkinInfo(title, img, DefIndex, IntPaintIndex, IntPaintSeed, FloatPaintWear);
+            skinInfo = new SkinInfo(title, img, nametag, DefIndex, IntPaintIndex, IntPaintSeed, FloatPaintWear);
         } catch (Exception _) {
             Console.WriteLine("Error when parsing: "+url);
             return null;
         }
 
-        if (!Config.EnableSticker) {
+        if (!enableSticker) {
             return skinInfo;
         }
         
@@ -168,6 +171,8 @@ partial class BuffInspector {
 
             }
         }
+
+        skinInfo.Stickers = skinInfo.Stickers.OrderBy((sticker) => sticker.Slot).ToList();
 
         return skinInfo;
 

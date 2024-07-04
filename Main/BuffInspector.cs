@@ -1,16 +1,9 @@
-﻿using System.Collections;
-using System.Reflection;
-using System.Security.Cryptography;
-using System.Timers;
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Core.Commands;
-using CounterStrikeSharp.API.Core.Plugin.Host;
+using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Entities.Constants;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using Microsoft.Extensions.Localization;
 using Newtonsoft.Json;
 
 namespace BuffInspector;
@@ -20,16 +13,20 @@ public class Config : BasePluginConfig {
     public bool EnableImagePreview {get; set;} = true;
     public float ImagePreviewTime {get; set;} = 5f;
     public bool EnableSticker {get; set;} = true;
+
+    public bool PureApiMode {get; set;} = false;
 }
 public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 {
 
 
     public override string ModuleName => "Buff Inspector";
-    public override string ModuleVersion => "3";
+    public override string ModuleVersion => "4";
     public override string ModuleAuthor => "samyyc";
     private DatabaseConnection Database;
     public Config Config {get; set;}
+
+    public PluginCapability<IBuffApiService> BuffApiServiceCapability = new("buffinspector:service");
 
     public static Dictionary<int,string> KnifeDefIndexToName { get; } = new Dictionary<int, string>
 	{
@@ -55,10 +52,12 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 		{ 526, "weapon_knife_kukri" }
 	};
 
-    
-    public Dictionary<ulong, string> CenterImages = new Dictionary<ulong, string>();
     private List<PlayerSticker> TempStickers = new List<PlayerSticker>();
-    private MemoryFunctionVoid<nint, string, float> CAttributeList_SetOrAddAttributeValueByName = new(GameData.GetSignature("CAttributeList_SetOrAddAttributeValueByName"));
+    private MemoryFunctionVoid<nint, string, float>? CAttributeList_SetOrAddAttributeValueByName = null;
+    
+    public static BuffInspector INSTANCE;
+
+    public static SkinInfoDisplayer SkinInfoDisplayer;
     
     public void OnConfigParsed(Config config) {
         Config = config;
@@ -66,6 +65,16 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 
     public override void Load(bool hotReload)
     {
+        INSTANCE = this;
+        SkinInfoDisplayer = new(Localizer);
+        Capabilities.RegisterPluginCapability(BuffApiServiceCapability, () => new BuffApiServiceImpl());
+        RegisterListener<Listeners.OnTick>(SkinInfoDisplayer.OnTick);
+        Localizer = base.Localizer;
+        if (Config.PureApiMode) {
+            Console.WriteLine("Buff Inspector is now loaded as pure api library.");
+            return;
+        }
+        CAttributeList_SetOrAddAttributeValueByName = new(GameData.GetSignature("CAttributeList_SetOrAddAttributeValueByName"));
         var CS2WeaponPaintsConfigPath = Path.Join(ModuleDirectory, "../../configs/plugins/WeaponPaints/WeaponPaints.json");
         if (!File.Exists(CS2WeaponPaintsConfigPath)) {
             throw new FileNotFoundException($"Weapon Paints Config {CS2WeaponPaintsConfigPath} Not Found.");
@@ -77,28 +86,21 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 
         Database = new DatabaseConnection(info);
 
-        RegisterListener<Listeners.OnTick>(OnTick);
         RegisterListener<Listeners.OnEntityCreated>(OnEntityCreated);
         
+        this.AddCommand("css_buff", "css_buff [buff分享链接]", OnBuffCommand);
+
         Console.WriteLine("Buff Inspector Loaded.");
     }
 
     public override void Unload(bool hotReload)
     {
-        RemoveListener<Listeners.OnEntityCreated>(OnEntityCreated);
-        RemoveListener<Listeners.OnTick>(OnTick);
-    }
-
-    private void OnTick() {
-         if (!Config.EnableImagePreview) {
+        if (Config.PureApiMode) {
             return;
         }
-        foreach (var (steamid, imgurl) in CenterImages) {
-            var player = Utilities.GetPlayerFromSteamId(steamid);
-            if (player != null && imgurl != null && player.IsValid && player.Pawn.IsValid && player.PlayerPawn.IsValid) {
-                player.PrintToCenterHtml($"<img src=\"{imgurl}\" width=100 height=100></img>", 10);
-            }
-        }   
+        RemoveListener<Listeners.OnEntityCreated>(OnEntityCreated);
+        RemoveListener<Listeners.OnTick>(SkinInfoDisplayer.OnTick);
+        RemoveCommand("css_buff", OnBuffCommand);
     }
 
     private float ViewAsFloat(uint value)
@@ -108,6 +110,9 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
     }
 
     private void OnEntityCreated(CEntityInstance entity) {
+        if (Config.PureApiMode) {
+            return;
+        }
         if (!entity.IsValid) {
             return;
         }
@@ -141,9 +146,10 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
         });
     }
 
-    [ConsoleCommand("css_buff")]
-    [CommandHelper(minArgs: 1, usage: "[buff分享链接]", whoCanExecute: CommandUsage.CLIENT_ONLY)]
-    public async void OnBuffCommand(CCSPlayerController player, CommandInfo commandInfo) {
+    public async void OnBuffCommand(CCSPlayerController? player, CommandInfo commandInfo) {
+        if (player == null) {
+            return;
+        }
         var splited = commandInfo.GetCommandString.Split(" ");
         splited = splited.Where(x => !string.IsNullOrEmpty(x)).ToArray();
         if (splited.Length < 2) {
@@ -157,7 +163,7 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
 
         if (!Config.UseSync) { 
             var task = new Task(async() => {
-                SkinInfo? skinInfo = await scrapeUrl(url);
+                SkinInfo? skinInfo = await Scraper.scrapeUrl(url, Config.EnableSticker);
 
                 if (skinInfo == null) { 
                     Server.NextFrame(() => player.PrintToChat(Localizer["failed"]));
@@ -178,30 +184,17 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
                 if (skinInfo.Stickers.Count() > 0) {
                     TempStickers.Add(new( steamid, skinInfo.DefIndex, skinInfo.Stickers ));
                 }
-                
-                await Server.NextFrameAsync(() => {
-                    player.PrintToChat(Localizer["success"]);
-                    player.PrintToChat(Localizer["hint.name", skinInfo.title]);
-                    player.PrintToChat(Localizer["hint.seed", skinInfo.PaintSeed]);
-                    player.PrintToChat(Localizer["hint.index", skinInfo.PaintIndex]);
-                    player.PrintToChat(Localizer["hint.wear", skinInfo.PaintWear]);
-                    foreach (var sticker in skinInfo.Stickers) {  
-                        player.PrintToChat(Localizer["hint.sticker", sticker.Slot, sticker.Name]);
-                    }
-                    player.PrintToChat(Localizer["hint.update"]);
-                    if (CenterImages.ContainsKey(steamid)) {
-                        CenterImages.Remove(steamid);
-                    }
-                    CenterImages.Add(steamid, skinInfo.img);
-                    AddTimer(Config.ImagePreviewTime, () => {
-                        CenterImages.Remove(steamid);
-                    });
+
+                Server.NextFrame(() => {
+                    SkinInfoDisplayer.ShowSkinInfoToPlayer(player, skinInfo, Config.EnableImagePreview, Config.ImagePreviewTime, false);
                 });
+            
+                
                     
             });
             task.Start();
         } else {
-            SkinInfo? skinInfo = scrapeUrl(url).Result;
+            SkinInfo? skinInfo = Scraper.scrapeUrl(url, Config.EnableSticker).Result;
 
             if (skinInfo == null) { 
                 player.PrintToChat(Localizer["failed"]);
@@ -223,24 +216,12 @@ public partial class BuffInspector : BasePlugin, IPluginConfig<Config>
                 TempStickers.Add(new( steamid, skinInfo.DefIndex, skinInfo.Stickers ));
             }
             
-            player.PrintToChat(Localizer["success"]);
-            player.PrintToChat(Localizer["hint.name", skinInfo.title]);
-            player.PrintToChat(Localizer["hint.seed", skinInfo.PaintSeed]);
-            player.PrintToChat(Localizer["hint.index", skinInfo.PaintIndex]);
-            player.PrintToChat(Localizer["hint.wear", skinInfo.PaintWear]);
-            foreach (var sticker in skinInfo.Stickers) {  
-                player.PrintToChat(Localizer["hint.sticker", sticker.Slot, sticker.Name]);
-            }
-            if (CenterImages.ContainsKey(steamid)) {
-                CenterImages.Remove(steamid);
-            }
-            CenterImages.Add(steamid, skinInfo.img);
-            AddTimer(Config.ImagePreviewTime, () => {
-                CenterImages.Remove(steamid);
-            });
+            SkinInfoDisplayer.ShowSkinInfoToPlayer(player, skinInfo, Config.EnableImagePreview, Config.ImagePreviewTime, true);
         
             player.ExecuteClientCommandFromServer("css_wp");
         }
+
+        return;
     }
 }
 
