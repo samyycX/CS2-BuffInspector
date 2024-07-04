@@ -8,7 +8,7 @@ public interface IBuffApiService {
     /// 通过buff分享链接获取饰品信息
     /// </summary>
     /// <param name="shareLink">buff分享链接，支持短链</param>
-    /// <returns>饰品信息，失败时返回null，目前仅支持枪械，匕首，手套</returns>
+    /// <returns>饰品信息，失败时返回null，目前仅支持枪械（包括印花），匕首，手套</returns>
     public SkinInfo? GetSkinInfoByBuffShareLink(string shareLink);
 
 
@@ -16,7 +16,7 @@ public interface IBuffApiService {
     /// 通过buff分享链接异步获取饰品信息
     /// </summary>
     /// <param name="shareLink">buff分享链接，支持短链</param>
-    /// <returns>饰品信息，失败时返回null，目前仅支持枪械，匕首，手套</returns>
+    /// <returns>饰品信息，失败时返回null，目前仅支持枪械（包括印花），匕首，手套</returns>
     public Task<SkinInfo?> GetSkinInfoByBuffShareLinkAsynchronously(string shareLink);
 
     /// <summary>
