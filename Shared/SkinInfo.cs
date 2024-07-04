@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using CounterStrikeSharp.API.Core;
 
 namespace BuffInspector;
 
@@ -22,20 +21,22 @@ public class Sticker {
     }
 }
 
-class SkinInfo {
-    public string title;
-    public string? img;
+public class SkinInfo {
+    public string title { get; init; }
+    public string? img { get; init; }
+    public string? nametag { get; init; }
     public required int DefIndex { get; init; }
     public required int PaintIndex { get; init; }
     public required int PaintSeed { get; init; }
     public required float PaintWear { get; init; }
 
-    public List<Sticker> Stickers { get; init; } = new List<Sticker>();
+    public List<Sticker> Stickers { get; set; } = new List<Sticker>();
 
     [SetsRequiredMembers]
-    public SkinInfo(string title, string? img, int defIndex, int paintIndex, int paintSeed, float wear) {
+    public SkinInfo(string title, string? img, string? nametag, int defIndex, int paintIndex, int paintSeed, float wear) {
         this.title = title;
         this.img = img;
+        this.nametag = nametag;
         this.DefIndex = defIndex;
         this.PaintIndex = paintIndex;
         this.PaintSeed = paintSeed;
