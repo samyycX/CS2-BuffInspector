@@ -4,7 +4,8 @@ using Newtonsoft.Json.Linq;
 
 namespace BuffInspector;
 
-public class Scraper {
+public class Scraper
+{
 
     private static Dictionary<string, int> ItemNameToDefIndex = new Dictionary<string, int>() {
         { "沙漠之鹰", 1 },
@@ -37,7 +38,7 @@ public class Scraper {
         { "SCAR-20", 38 },
         { "SG 553", 39 },
         { "SSG 08", 40 },
-        { "M4A1 消音版", 60 },
+        { "M4A1 消音型", 60 },
         { "USP 消音版", 61 },
         { "CZ75 自动手枪", 63 },
         { "R8 左轮手枪", 64 },
@@ -68,17 +69,20 @@ public class Scraper {
         { "手部束带", 5032 },
         { "摩托手套", 5033 },
         { "专业手套", 5034 },
-        { "九头蛇手套", 5035 }  
+        { "九头蛇手套", 5035 }
     };
 
-    private static string? ExtractFirstNumber(string input) {
+    private static string? ExtractFirstNumber(string input)
+    {
         var result = Regex.Matches(input, "(\\d+)");
         return result.First()?.Value;
     }
-    public async static Task<SkinInfo?> scrapeUrl(string url, bool enableSticker) {
+    public async static Task<SkinInfo?> scrapeUrl(string url)
+    {
         url = url.Replace("https://", "").Replace("http://", "");
 
-        if (!url.StartsWith("buff.163.com")) {
+        if (!url.StartsWith("buff.163.com"))
+        {
             return null;
         }
         url = url.Replace("buff.163.com", "");
@@ -89,9 +93,12 @@ public class Scraper {
         var resp = await client.GetAsync(url);
 
         // short link redirect
-        if (resp.StatusCode == System.Net.HttpStatusCode.Found) {
+        if (resp.StatusCode == System.Net.HttpStatusCode.Found)
+        {
             url = resp.Headers.GetValues("location").First();
-        } else if (resp.StatusCode != System.Net.HttpStatusCode.OK) {
+        }
+        else if (resp.StatusCode != System.Net.HttpStatusCode.OK)
+        {
             return null;
         }
 
@@ -99,7 +106,8 @@ public class Scraper {
         url = url.Replace("https://", "").Replace("http://", "").Replace("buff.163.com", "");
         resp = await client.GetAsync(url);
 
-        if (!resp.IsSuccessStatusCode) {
+        if (!resp.IsSuccessStatusCode)
+        {
             return null;
         }
 
@@ -108,66 +116,77 @@ public class Scraper {
         htmlDoc.LoadHtml(html);
 
         var title = htmlDoc.DocumentNode.SelectSingleNode("//h3")?.InnerText;
-        if (title == null) {
+        if (title == null)
+        {
             return null;
         }
         string? nametag = htmlDoc.DocumentNode.SelectSingleNode("//p[@class='name_tag']")?.InnerText;
-        if (nametag != null) {
+        if (nametag != null)
+        {
             nametag = Regex.Matches(nametag, @"(?<=“)(.*)(?=”)").FirstOrDefault()?.Value;
         }
         var img = htmlDoc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", "");
-        var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='info-card'][1]/p");
+        var informations = htmlDoc.DocumentNode.SelectNodes("//div[@class='info-card'][1]/p/span");
         // informations为Null则该链接不为枪械、刀具或手套皮肤
-        if (informations == null || informations.Count() < 3) {
+        if (informations == null || informations.Count() < 3)
+        {
             return null;
         }
         string? paintSeed = ExtractFirstNumber(informations[0].InnerText);
         string? paintIndex = ExtractFirstNumber(informations[1].InnerText);
-        string paintWear = Regex.Replace(informations[2].InnerText, @"[^\d+\.?\d*]+", ""); 
-        if (paintIndex == null || paintSeed == null || paintWear == null) {
+        string paintWear = Regex.Replace(informations[2].InnerText, @"[^\d+\.?\d*]+", "");
+        if (paintIndex == null || paintSeed == null || paintWear == null)
+        {
             return null;
         }
         int DefIndex = -1;
-        foreach (var item in ItemNameToDefIndex) {
-            if (title.StartsWith(item.Key)) {
+        foreach (var item in ItemNameToDefIndex)
+        {
+            if (title.StartsWith(item.Key))
+            {
                 DefIndex = item.Value;
                 break;
             }
         }
-        if (DefIndex == -1) {
+        if (DefIndex == -1)
+        {
             return null;
         }
 
         SkinInfo skinInfo = null;
-        try {
+        try
+        {
             int IntPaintSeed = int.Parse(paintSeed);
             int IntPaintIndex = int.Parse(paintIndex);
             float FloatPaintWear = float.Parse(paintWear);
-            
+
             skinInfo = new SkinInfo(title, img, nametag, DefIndex, IntPaintIndex, IntPaintSeed, FloatPaintWear);
-        } catch (Exception _) {
-            Console.WriteLine("Error when parsing: "+url);
+        }
+        catch (Exception _)
+        {
+            Console.WriteLine("Error when parsing: " + url);
             return null;
         }
 
-        if (!enableSticker) {
-            return skinInfo;
-        }
-        
         // sticker
         var itemDescDetailUrl = url.Replace("/market/item_detail", "/api/market/item_desc_detail");
         var itemDescDetailResp = await client.GetAsync(itemDescDetailUrl);
-        if (itemDescDetailResp.IsSuccessStatusCode) {
+        if (itemDescDetailResp.IsSuccessStatusCode)
+        {
             var itemDescDetailJson = await itemDescDetailResp.Content.ReadAsStringAsync();
             var itemDescDetail = JObject.Parse(itemDescDetailJson) as dynamic;
-            if (itemDescDetail != null && itemDescDetail!.code == "OK") {
-                try {
+            if (itemDescDetail != null && itemDescDetail!.code == "OK")
+            {
+                try
+                {
                     var stickersJson = itemDescDetail!.data.steam_asset_info.stickers;
-                    foreach (dynamic obj in stickersJson) {
-                        var sticker = new Sticker((int) obj.sticker_id, (int) obj.slot, (float) obj.wear, (float) (obj.offset_x ?? 0f), (float) (obj.offset_y ?? 0f), (string) obj.sticker_name);
+                    foreach (dynamic obj in stickersJson)
+                    {
+                        var sticker = new Sticker((int)obj.sticker_id, (int)obj.slot, (float)obj.wear, (float)(obj.offset_x ?? 0f), (float)(obj.offset_y ?? 0f), (string)obj.name);
                         skinInfo!.SetSticker(sticker);
                     }
-                } catch (Exception _) {}
+                }
+                catch (Exception _) { }
 
             }
         }
