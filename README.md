@@ -17,7 +17,6 @@
 > 开启 `UseSync` 选项可能会造成服务器发生严重卡顿，不建议在连接至BUFF或者皮肤数据库时有较大延迟的服务器使用
 - `EnableImagePreview` 开启屏幕中心的图片预览
 - `ImagePreviewTime` 图片预览的持续时间（秒）
-- `EnableSticker` 开启贴纸功能（目前存在一些无法刷新的BUG，有需要请关闭）
 - `PureApiMode` 纯API库模式，供其他插件使用（正常情况无需配置）
 # 使用方法
 1. 从 [Release](https://github.com/samyycX/CS2-BuffInspector/releases/latest) 下载插件压缩包
