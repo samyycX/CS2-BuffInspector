@@ -17,16 +17,22 @@ class DatabaseInfo
 
 class DatabaseConnection
 {
-    private MySqlConnection conn;
+
+    private string DbConnString;
     public DatabaseConnection(DatabaseInfo info)
     {
-        string connectStr = $"server={info.host};port={info.port};user={info.user};password={info.password};database={info.database};Pooling=true;MinimumPoolSize=0;MaximumPoolsize=640;ConnectionIdleTimeout=30;";
-        conn = new MySqlConnection(connectStr);
-        conn.Open();
+        DbConnString = $"server={info.host};port={info.port};user={info.user};password={info.password};database={info.database};Pooling=true;MinimumPoolSize=0;MaximumPoolsize=640;ConnectionIdleTimeout=30;";
+    }
+    public async Task<MySqlConnection> ConnectAsync()
+    {
+        MySqlConnection connection = new(DbConnString);
+        await connection.OpenAsync();
+        return connection;
     }
 
-    public async Task SetSkinInfo(ulong steamid, SkinInfo skinInfo)
+    public async Task<int> SetSkinInfo(ulong steamid, SkinInfo skinInfo)
     {
+        using MySqlConnection conn = ConnectAsync().Result;
         var sql = "";
         var select = "SELECT 1 FROM wp_player_skins WHERE steamid=@steamid AND weapon_defindex=@DefIndex;";
         var r = conn.Query(select, new
@@ -54,29 +60,27 @@ class DatabaseConnection
             """;
         }
 
-        await Task.Run(async () =>
-        {
-            await conn.ExecuteAsync(sql,
-                new
-                {
-                    steamid,
-                    skinInfo.PaintIndex,
-                    skinInfo.PaintSeed,
-                    skinInfo.PaintWear,
-                    skinInfo.DefIndex,
-                    skinInfo.Nametag,
-                    sticker0,
-                    sticker1,
-                    sticker2,
-                    sticker3,
-                    sticker4
-                }
-            );
-        });
+        return await conn.ExecuteAsync(sql,
+            new
+            {
+                steamid,
+                skinInfo.PaintIndex,
+                skinInfo.PaintSeed,
+                skinInfo.PaintWear,
+                skinInfo.DefIndex,
+                Nametag = "", // weaponpaints的数据库不支持中文 //skinInfo.Nametag,
+                sticker0,
+                sticker1,
+                sticker2,
+                sticker3,
+                sticker4
+            }
+        );
     }
 
-    public async Task SetKnifeInfo(ulong steamid, string knife)
+    public async Task<int> SetKnifeInfo(ulong steamid, string knife)
     {
+        using MySqlConnection conn = ConnectAsync().Result;
         var sql = "";
         var select = "SELECT 1 FROM wp_player_knife WHERE steamid=@steamid";
         var r = conn.Query(select, new
@@ -96,20 +100,18 @@ class DatabaseConnection
             """;
         }
 
-        await Task.Run(async () =>
-        {
-            await conn.ExecuteAsync(sql,
-                new
-                {
-                    steamid,
-                    knife
-                }
-            );
-        });
+        return await conn.ExecuteAsync(sql,
+                   new
+                   {
+                       steamid,
+                       knife
+                   }
+               );
     }
 
-    public async Task SetGloveInfo(ulong steamid, int defindex)
+    public async Task<int> SetGloveInfo(ulong steamid, int defindex)
     {
+        using MySqlConnection conn = ConnectAsync().Result;
         var sql = "";
         var select = "SELECT 1 FROM wp_player_gloves WHERE steamid=@steamid";
         var r = conn.Query(select, new
@@ -129,15 +131,12 @@ class DatabaseConnection
             """;
         }
 
-        await Task.Run(async () =>
-        {
-            await conn.ExecuteAsync(sql,
-                new
-                {
-                    steamid,
-                    defindex
-                }
-            );
-        });
+        return await conn.ExecuteAsync(sql,
+                 new
+                 {
+                     steamid,
+                     defindex
+                 }
+             );
     }
 }

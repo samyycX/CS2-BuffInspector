@@ -3,7 +3,8 @@ using CounterStrikeSharp.API.Core;
 
 namespace BuffInspector;
 
-public class BuffApiServiceImpl : IBuffApiService {
+public class BuffApiServiceImpl : IBuffApiService
+{
     public SkinInfo? GetSkinInfoByBuffShareLink(string shareLink)
     {
         return GetSkinInfoByBuffShareLinkAsynchronously(shareLink).Result;
@@ -11,8 +12,7 @@ public class BuffApiServiceImpl : IBuffApiService {
 
     public Task<SkinInfo?> GetSkinInfoByBuffShareLinkAsynchronously(string shareLink)
     {
-        // wtf?
-        return Scraper.scrapeUrl(shareLink, true);
+        return Scraper.scrapeUrl(shareLink);
     }
 
     public void ShowSkinInfoToPlayer(CCSPlayerController player, SkinInfo? skinInfo, bool EnableImagePreview = true, float ImagePreviewTime = 5, bool NotifyUserToUpdate = true)
